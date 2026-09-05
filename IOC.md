@@ -12,6 +12,21 @@ successfully exploited, all on 5 September 2026. Cross-referenced with the
 
 Items marked **new** did not appear in that advisory at the time of writing.
 
+## Updates
+
+This list grows as we mine the evidence further. Newest first, so returning readers can see
+what changed since they last read it. Each dated entry is additive unless it says otherwise.
+
+- **2026-09-05, later revision** — Added a second-wave source IP (`91.238.181.19`, AS49434);
+  documented a second trigger-header family (`X-<12 hex>` with no `TRACE`, alongside the
+  original `X-TRACE-<10 hex>`); added response markers (`MG<20 hex>::...::/MG<20 hex>`) as
+  proof-of-execution; added attacker user agents (`python-requests 2.15.0` and `/2.32.4`).
+  Corrected the source-address count from 26 to 27. Removed one IPv6 address that was our own
+  test traffic, not the attacker.
+- **2026-09-05, initial** — First publication: malware hashes, `.gvfsd`/`.kw_` artefacts,
+  self-restoring crontab, C2 hosts, the `var/log/system.log` poisoning path, and the initial
+  source-address set.
+
 ---
 
 ## Malware
