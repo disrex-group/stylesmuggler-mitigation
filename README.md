@@ -13,7 +13,38 @@ vulnerability in Magento Open Source and Adobe Commerce that Sansec disclosed on
 
 Advisory: <https://sansec.io/research/stylesmuggler>
 
-**New here?** [HOW-IT-WORKS.md](HOW-IT-WORKS.md) explains the mechanism with diagrams: how a log file becomes an executable, why the implant is invisible to network monitoring, and where each mitigation cuts the chain.
+---
+
+## Start here
+
+**Check whether you are already compromised before you apply anything.**
+
+Blocking the exploit on an infected server accomplishes nothing. The attacker is already
+inside, the implant restarts itself every five minutes, and these rules only stop the *next*
+intrusion.
+
+```
+   ┌─────────────────────────────────────────────────────────────┐
+   │  1. CHECK      §1 below, all read-only                      │
+   └──────────────────────────┬──────────────────────────────────┘
+                              │
+              ┌───────────────┴───────────────┐
+              │                               │
+         hits found                      nothing found
+              │                               │
+              ▼                               ▼
+   ┌──────────────────────┐        ┌──────────────────────┐
+   │  2. CLEAN UP FIRST   │        │  2. Apply §2 and §3  │
+   │  → CLEANUP.md        │───────>│     snippets         │
+   │  do NOT skip to §2   │  then  │                      │
+   └──────────────────────┘        └──────────────────────┘
+```
+
+| Document | For |
+|---|---|
+| **This file** | The snippets, and the read-only checks in §1 |
+| **[CLEANUP.md](CLEANUP.md)** | You found indicators. Evidence, containment, where to hunt, what to rotate, clean vs rebuild |
+| **[HOW-IT-WORKS.md](HOW-IT-WORKS.md)** | The mechanism, with diagrams. How a log file becomes an executable, why the implant is invisible to network monitoring, where each layer cuts |
 
 ---
 
@@ -96,13 +127,27 @@ Two details that cost defenders time in the wild:
 - Malware scanners pointed at the document root miss this entirely. The implant installs into
   `~/.local/share/`, one level above.
 
-**If you find any of this, stop.** Installing mitigation does not clean up a compromise.
-Preserve evidence, do not reboot, and treat every credential the site user could read as
-exposed.
+### If you found something
+
+**Stop. Do not apply the snippets yet, and do not reboot.**
+
+Go to **[CLEANUP.md](CLEANUP.md)**. It walks the whole thing in the order that works:
+preserve evidence, remove persistence before killing processes, hunt every place the attacker
+could have left something, rotate every secret the site user could read, and decide honestly
+whether to clean or rebuild.
+
+Three mistakes that cost people their second weekend:
+
+- **Rebooting.** `/proc/<pid>/exe` is often the only copy of a binary the attacker deleted from disk.
+- **Killing the process before removing the cron entry.** It comes straight back, and now they know you noticed.
+- **Running `composer install` to "clean" it.** That overwrites the timestamps proving what was touched.
 
 ---
 
 ## 2. Block the request at the web server
+
+> Only worth doing once §1 comes back clean, or once you have worked through
+> [CLEANUP.md](CLEANUP.md). Rules on an infected server stop nothing that is already running.
 
 Full snippets: [`snippets/nginx.conf`](snippets/nginx.conf) and
 [`snippets/apache.conf`](snippets/apache.conf). The nginx rules:
