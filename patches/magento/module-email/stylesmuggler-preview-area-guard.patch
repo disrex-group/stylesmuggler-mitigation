@@ -1,0 +1,18 @@
+--- a/Block/Adminhtml/Template/Preview.php
++++ b/Block/Adminhtml/Template/Preview.php
+@@ -55,6 +55,15 @@
+      */
+     protected function _toHtml()
+     {
++        // StyleSmuggler mitigation (unpatched 0-day, Sansec 2026-09-05):
++        // adminhtml-only block. Its request parameters (text, type, styles) go
++        // straight into the template filter, so reaching it outside the admin
++        // area hands an unauthenticated caller {{block}} directive execution.
++        // Remove once Adobe ships an official fix.
++        if ($this->_appState->getAreaCode() !== \Magento\Framework\App\Area::AREA_ADMINHTML) {
++            throw new \RuntimeException('Email template preview is admin-only.');
++        }
++
+         $request = $this->getRequest();
+ 
+         $storeId = $this->getAnyStoreView()->getId();

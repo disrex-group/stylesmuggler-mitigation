@@ -10,11 +10,17 @@
 > out of Magento 2.4.7-p2 source on that same store. The indicators of compromise were
 > observed first-hand, and cross-checked against Sansec's published advisory.
 >
+> The section 3 caller analysis was rerun on 10 installs spanning 2.4.6, 2.4.7-p2, 2.4.7-p10
+> and 2.4.8-p2 through p5. The CLI guard was executed against a poisoned file under both the
+> `cli` and a web SAPI, and it blocked the payload on the web side.
+>
 > **What is not verified:** the Apache rules were never run against a live Apache. Most of the
-> cleanup commands were written rather than executed. Nothing was tested on any Magento
-> version other than 2.4.7-p2, on any distribution other than Ubuntu, or on shared hosting,
-> Docker, or a control panel. Regexes that look obviously correct have a long history of not
-> being.
+> cleanup commands were written rather than executed. The guard was exercised on a harness
+> rather than inside a running store, and nothing here was tested on any distribution other
+> than Ubuntu, or on shared hosting, Docker, or a control panel. The `vendor/` grep in section
+> 3 finds modules that name the scanner classes directly; a module reaching them through a
+> factory or a string would slip past it. Regexes that look obviously correct have a long
+> history of not being.
 >
 > **So: read every command before you run it.** Understand what it does in *your* environment,
 > not the one it was written in. Test on staging, take backups, and validate your web-server
@@ -257,23 +263,46 @@ location ^~ /graphql { return 403; }
 is shaped, so it cannot be bypassed by moving parameters into the POST body.
 
 The attack terminates inside Magento's dependency-injection compiler, in classes that perform
-a variable-path `include`. Those classes exist solely to serve `bin/magento setup:di:compile`
-and are never legitimately reached over HTTP, so refusing non-CLI execution removes the
-primitive at no functional cost.
+a variable-path `include`. Stock Magento drives all three from `bin/magento setup:di:compile`,
+so refusing non-CLI execution removes the primitive.
 
-Add this guard as the **first statement** of the method in each of the three files:
+Two of the three are free. One needs a check first.
+
+| File under `setup/src/Magento/Setup/Module/Di/Code/` | Method | Guard it |
+|---|---|---|
+| `Scanner/ArrayScanner.php` | `collectEntities()` | always |
+| `Scanner/XmlInterceptorScanner.php` | `_handleControllerClassName()` | always |
+| `Reader/ClassesScanner.php` | `includeClass()` | run the check below first |
+
+We grepped 2.4.6, 2.4.7-p2, 2.4.7-p10 and 2.4.8-p2 through p5. Nothing calls `ArrayScanner`
+or `XmlInterceptorScanner` anywhere in those trees except their own unit tests, so guarding
+those two costs you nothing.
+
+`ClassesScanner` is different. Stock Magento only calls it from the DI compiler, but
+third-party modules borrow it. `mageplaza/module-admin-permissions` injects it and calls
+`getList()` from `Controller/Adminhtml/Grid/Rescan.php`, which runs over HTTP. Guard it there
+and that admin screen throws a 500. Check your own `vendor/` before you touch this file:
+
+```bash
+grep -rl --include='*.php' \
+  -e 'Di\\Code\\Reader\\ClassesScanner' \
+  -e 'Di\\Code\\Scanner\\ArrayScanner' \
+  -e 'Di\\Code\\Scanner\\XmlInterceptorScanner' \
+  vendor app/code 2>/dev/null \
+  | grep -v '/Test/' | grep -v '/magento2-base/setup/src/' | grep -v obsolete_
+```
+
+Empty output means guard all three. Any path printed is a module that can reach the scanners
+over HTTP: guard the other two, leave `ClassesScanner` alone, and lean on the section 2 rules
+for that store.
+
+Add this guard as the **first statement** of the method in each file you are guarding:
 
 ```php
 if (PHP_SAPI !== 'cli') {
     throw new \RuntimeException('Magento DI scanners are CLI-only.');
 }
 ```
-
-| File under `setup/src/Magento/Setup/Module/Di/Code/` | Method |
-|---|---|
-| `Scanner/ArrayScanner.php` | `collectEntities()` |
-| `Reader/ClassesScanner.php` | `includeClass()` |
-| `Scanner/XmlInterceptorScanner.php` | `_handleControllerClassName()` |
 
 So `ArrayScanner::collectEntities()` becomes:
 
@@ -296,7 +325,42 @@ php -l setup/src/Magento/Setup/Module/Di/Code/Scanner/ArrayScanner.php
 bin/magento setup:di:compile
 ```
 
-**`composer install` reverts this.** `setup/` ships from `magento/magento2-base` and is
+`setup:di:compile` runs under the CLI SAPI, which is the side of the guard that stays open. It
+passes on a store where you have just broken the admin, so it cannot tell you the guard was
+safe. After it succeeds, open the admin panel and a storefront page and watch the PHP error
+log for `Magento DI scanners are CLI-only`:
+
+```bash
+tail -f var/log/*.log /var/log/php*-fpm.log 2>/dev/null | grep -i 'DI scanners are CLI-only'
+```
+
+A hit names a page that legitimately reached a scanner. Undo that one file as below and keep
+the other two guards.
+
+### Undoing a guard
+
+`magento2-base` ships a pristine copy of all three files, so you can restore one without
+touching the rest of the install and without a full `composer install`:
+
+```bash
+BASE=vendor/magento/magento2-base/setup/src/Magento/Setup/Module/Di/Code
+cp "$BASE/Reader/ClassesScanner.php" setup/src/Magento/Setup/Module/Di/Code/Reader/
+```
+
+Confirm the guard is gone, then let the page recover:
+
+```bash
+grep -c 'PHP_SAPI' setup/src/Magento/Setup/Module/Di/Code/Reader/ClassesScanner.php   # 0
+```
+
+If your pools run `opcache.validate_timestamps=1` the change lands within `revalidate_freq`
+seconds. With revalidation off, PHP-FPM keeps serving the guarded bytecode until you reset the
+cache or reload the service, so the admin stays broken until you do.
+
+Swap `Reader/ClassesScanner.php` for `Scanner/ArrayScanner.php` or
+`Scanner/XmlInterceptorScanner.php` to undo either of the other two.
+
+**`composer install` reverts all of this.** `setup/` ships from `magento/magento2-base` and is
 gitignored in most projects, so re-apply it after every deploy. Verify with:
 
 ```bash
@@ -304,6 +368,38 @@ grep -c 'PHP_SAPI' setup/src/Magento/Setup/Module/Di/Code/Scanner/ArrayScanner.p
 ```
 
 ---
+
+## 3b. The same guards as deployable patches
+
+Sections 2 and 3 above are what you do by hand on a running box. For anything you
+deploy with Composer, [`patches/`](patches/) ships the guards as `composer-patches`
+files that reapply on every `composer install`, so a deploy never quietly reverts them:
+
+- `magento/magento2-base` — the three DI scanners become CLI-only (the sink, section 3)
+- `magento/module-email` — the email template preview refuses to render outside the
+  admin area (the **front door**: it makes the whole gadget chain unreachable, and it
+  is not something the manual steps above cover)
+
+One patch per file applies across 2.4.6 through 2.4.9, verified with `patch --dry-run`
+against every tag in that range and applied-and-linted on live 2.4.7-p2 and 2.4.8-p4,
+with `setup:di:compile` and the storefront confirmed working afterwards.
+
+```json
+"extra": {
+    "composer-exit-on-patch-failure": true,
+    "patches": {
+        "magento/magento2-base": {
+            "StyleSmuggler: DI code scanners are CLI-only": "patches/magento/magento2-base/stylesmuggler-di-scanner-guard.patch"
+        },
+        "magento/module-email": {
+            "StyleSmuggler: email template preview is admin-only": "patches/magento/module-email/stylesmuggler-preview-area-guard.patch"
+        }
+    }
+}
+```
+
+Full instructions, including applying by hand and reverting, in
+[patches/README.md](patches/README.md).
 
 ## 4. Confirm it works
 
