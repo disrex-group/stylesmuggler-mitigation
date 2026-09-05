@@ -16,7 +16,7 @@ Advisory: <https://sansec.io/research/stylesmuggler>
 ## Quick start
 
 ```bash
-git clone https://github.com/YOURORG/stylesmuggler-mitigation.git
+git clone https://github.com/disrex-group/stylesmuggler-mitigation.git
 cd stylesmuggler-mitigation
 
 sudo ./bin/stylesmuggler-scan.sh      # are you already compromised?

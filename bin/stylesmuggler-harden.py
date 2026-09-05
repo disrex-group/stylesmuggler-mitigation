@@ -24,7 +24,7 @@ GUARD = (
     "        // StyleSmuggler mitigation: this DI scanner only ever runs from\n"
     "        // bin/magento setup:di:compile. Reaching it over HTTP means the\n"
     "        // include below is being driven as a code-execution primitive.\n"
-    "        // Remove once an upstream fix is applied. https://github.com/\n"
+    "        // Remove once an upstream fix is applied. See disrex-group/stylesmuggler-mitigation\n"
     "        if (PHP_SAPI !== 'cli') {\n"
     "            throw new \\RuntimeException('Magento DI scanners are CLI-only.');\n"
     "        }\n"
