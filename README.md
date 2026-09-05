@@ -171,6 +171,26 @@ Three mistakes that cost people their second weekend:
 > Only worth doing once §1 comes back clean, or once you have worked through
 > [CLEANUP.md](CLEANUP.md). Rules on an infected server stop nothing that is already running.
 
+> ### These rules are a speed bump, not a fix
+>
+> nginx and Apache can only inspect the URL query string. The attacks seen in the wild put
+> the exploit parameters there, so these rules stop the campaign as it currently runs. But
+> PHP merges GET and POST into `$_REQUEST`, and Magento reads from both, so **an attacker who
+> moves the same parameters into the POST body walks straight past every rule below.**
+>
+> Measured on a live store with these rules deployed:
+>
+> | Request | Result |
+> |---|---|
+> | `GET /graphql?styles[first]=x` | blocked (444) |
+> | `POST /graphql?styles[first]=x` | blocked (444) |
+> | `POST /graphql` with `styles[first]=x` in the **body** | **reached PHP** |
+> | `POST /graphql` with a JSON body | **reached PHP** |
+>
+> Deploy these rules, because they cost nothing and they stop what is hitting stores today.
+> Do not stop here. **[Section 3](#3-make-the-di-scanners-cli-only) is the control that
+> actually holds**, because it sits on the sink and does not care how the request arrived.
+
 Full snippets: [`snippets/nginx.conf`](snippets/nginx.conf) and
 [`snippets/apache.conf`](snippets/apache.conf). The nginx rules:
 
@@ -227,7 +247,8 @@ location ^~ /graphql { return 403; }
 
 ## 3. Make the DI scanners CLI-only
 
-Optional, and independent of the rules above. Either layer alone breaks the chain.
+**This is the important one.** Unlike the web-server rules, it is not tied to how the request
+is shaped, so it cannot be bypassed by moving parameters into the POST body.
 
 The attack terminates inside Magento's dependency-injection compiler, in classes that perform
 a variable-path `include`. Those classes exist solely to serve `bin/magento setup:di:compile`
@@ -297,6 +318,8 @@ curl -sk -o /dev/null -w '%{http_code}\n' 'https://YOURSTORE/'
 ## What this is not
 
 - Not a fix. Only Adobe can ship that. Replace these rules with the official patch when it lands.
+- The web-server rules in §2 are **bypassable by design**, since nginx and Apache cannot read
+  POST bodies. They stop the current campaign, not a determined attacker. §3 is what holds.
 - Not incident response. If you are already compromised, these rules change nothing about that.
 - Not exhaustive. Variants that differ from the two published samples will not match.
 

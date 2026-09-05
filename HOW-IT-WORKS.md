@@ -294,8 +294,26 @@ before the infection was found and reported clean, correctly, for the path it wa
    ⑤  cron persistence
 ```
 
-Layers A and B are independent. Either one alone breaks the chain, which is why applying both
-is worth the small effort: if someone finds another route to stage 2, layer B still holds.
+### These layers are not equal
+
+Layer A only sees the URL query string. Every attack observed so far puts the parameters
+there, so it works against the campaign as it currently runs. But PHP merges GET and POST into
+`$_REQUEST`, so moving the same parameters into the POST body defeats it entirely. Verified on
+a live store with the rules deployed:
+
+```
+   GET  /graphql?styles[first]=x            →  blocked (444)
+   POST /graphql?styles[first]=x            →  blocked (444)
+   POST /graphql  styles[first]=x IN BODY   →  reached PHP
+   POST /graphql  {"styles":{"first":"x"}}  →  reached PHP
+```
+
+nginx and Apache cannot inspect request bodies without ModSecurity or Lua, so this is a limit
+of the approach, not a gap in the regexes.
+
+**Layer B is the control that holds.** It sits on the sink rather than the transport, so it
+does not care whether the parameters arrived by query string, form body or JSON. Deploy layer
+A because it is free and stops today's traffic; rely on layer B.
 
 Layer A is deploy-proof. Layer B is reverted by `composer install`, because `setup/` ships from
 `magento/magento2-base`, so re-apply it after every deploy.
