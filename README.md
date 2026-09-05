@@ -124,13 +124,16 @@ find /home /root /tmp /var/tmp /dev/shm \
 
 ### Indicators of compromise
 
+Full cross-referenced list, with caveats: **[IOC.md](IOC.md)**. The short version:
+
 ```
 247.cdnflare.xyz                 malware download host
-99.84.67.186:443                 C2, WebSocket over TLS
-88.216.72.181                    attacker source, seen at multiple victims
+5.181.86.133                     attacker source, bulk traffic
+88.216.72.181                    attacker source, published by Sansec
 
 sha256  e315687a1dfe61ef4a5a5642214db6d3b2b05d81391285eebc2af664641a26a7
 sha256  8334b434fa3fe9f59cebe9609b11e0b1fd19d10212c45c705adec1902a1d06ef
+sha256  251fabd50d7b18a8b5e1b3ef5d64e7198c17244778f6461fb1ab07f6169bf220
 
 ~/.local/share/.gvfsd/gvfsd-user
 ~/.local/share/.gvfsd/.gvfsd_<8hex>.lock
@@ -138,6 +141,9 @@ sha256  8334b434fa3fe9f59cebe9609b11e0b1fd19d10212c45c705adec1902a1d06ef
 crontab:  */5 * * * * exec <home>/.local/share/.gvfsd/gvfsd-user
 process:  [kworker/u:8:0] owned by a non-root uid
 ```
+
+Two things in IOC.md that cost us time: the traffic came from **28 addresses**, not the one in
+the advisory, and the binary running in memory can hash differently from the file on disk.
 
 The implant is a stripped static Rust binary of roughly 1.9 MB, built for x86-64 and arm64.
 In one observed infection it opened no outbound connection at all, reading its work from the
