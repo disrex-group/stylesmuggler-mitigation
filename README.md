@@ -41,6 +41,15 @@ vulnerability in Magento Open Source and Adobe Commerce that Sansec disclosed on
 
 Advisory: <https://sansec.io/research/stylesmuggler>
 
+> ### UPDATE — deployable patches are now available
+>
+> The two guards below (the DI scanner sink in section 3, and the email-preview front
+> door) are now shipped as `composer-patches` source patches in **[`patches/`](patches/)**,
+> one per Magento package. They reapply on every `composer install`, so a deploy never
+> reverts them, and one patch per file applies across 2.4.6 through 2.4.9. If you deploy
+> Magento with Composer, prefer these over the hand-edits. See
+> [patches/README.md](patches/README.md).
+
 ---
 
 ## Start here
