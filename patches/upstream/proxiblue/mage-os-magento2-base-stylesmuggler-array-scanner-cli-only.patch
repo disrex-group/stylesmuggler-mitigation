@@ -1,0 +1,16 @@
+--- a/setup/src/Magento/Setup/Module/Di/Code/Scanner/ArrayScanner.php
++++ b/setup/src/Magento/Setup/Module/Di/Code/Scanner/ArrayScanner.php
+@@ -15,6 +15,12 @@
+      */
+     public function collectEntities(array $files)
+     {
++        // StyleSmuggler 0-day (sansec.io/research/stylesmuggler, 2026-09) — this variable-path
++        // include is only ever meant to run via bin/magento setup:di:compile.
++        if (PHP_SAPI !== 'cli') {
++            throw new \RuntimeException('Magento DI scanners are CLI-only.');
++        }
++
+         $output = [];
+         foreach ($files as $file) {
+             if (file_exists($file)) {
+

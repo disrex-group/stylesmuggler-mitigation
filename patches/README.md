@@ -47,6 +47,16 @@ plus the two that do not depend on knowing the vulnerability at all:
 
 See the main README and HOW-IT-WORKS.md for those.
 
+## Independently confirmed by ProxiBlue
+
+ProxiBlue published the identical guard, on the same three methods with the same
+`PHP_SAPI !== 'cli'` check, separately from us:
+<https://gist.github.com/ProxiBlue/07373c92c8c70dc746bbfdcd1f07b789>
+
+Their originals are reproduced with credit in [`upstream/proxiblue/`](upstream/proxiblue/).
+Two parties reaching the same fix independently is the strongest signal it is correct.
+Apply either our combined patch or ProxiBlue's three, not both.
+
 ## Version coverage
 
 The three target methods sit at identical surrounding lines from 2.4.6 through 2.4.9,

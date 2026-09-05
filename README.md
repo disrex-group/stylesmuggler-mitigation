@@ -442,6 +442,11 @@ nothing by it: every rule here works without knowing how to build the exploit.
 
 ## Credits
 
+ProxiBlue (Lucas van Staden) independently published the same DI-scanner guard
+(<https://gist.github.com/ProxiBlue/07373c92c8c70dc746bbfdcd1f07b789>); their originals are
+in `patches/upstream/proxiblue/`. Convergent, independent work.
+
+
 Vulnerability discovery, naming and the original advisory belong to the
 [Sansec](https://sansec.io) forensics team. These snippets came out of a live incident
 response on 5 September 2026 and are not affiliated with Sansec or Adobe.
