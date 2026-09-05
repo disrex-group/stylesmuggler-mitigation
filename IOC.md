@@ -73,8 +73,9 @@ Redis.
 ### Hosting infrastructure, bulk traffic
 
 ```
-5.181.86.133    new    CloudVPS     96 requests against one store
-88.216.72.181          (Sansec)     45 requests
+5.181.86.133    new    CloudVPS       96 requests against one store
+91.238.181.19   new    AS49434 (FR)   48 exploit requests, second wave (17:08 CEST, 5 Sep)
+88.216.72.181          (Sansec)       45 requests
 ```
 
 > **Corrected 2026-09-05.** An earlier version of this file listed two Hetzner IPv6 addresses
@@ -99,8 +100,10 @@ recognise the shape: two to six requests each, spread thin, alongside the bulk s
 ```
 
 Blocking `88.216.72.181` alone, which is what the advisory's IOC list implies, stops less than
-a quarter of the traffic we saw. In total we recorded 26 distinct source addresses across two
-stores.
+a quarter of the traffic we saw. In total we recorded 27 distinct source addresses across three
+stores and two waves. The second wave, on the afternoon of 5 September and well after the
+initial compromise, came almost entirely from `91.238.181.19` and was blocked at the web-server
+layer.
 
 ## Request signatures
 
@@ -115,17 +118,51 @@ That last one is ordinary Magento traffic. In the variant we captured the payloa
 
 ### Trigger header
 
+Two families were used, and the second dropped the `TRACE` word entirely:
+
 ```
-X-TRACE-<10 hex>
+X-TRACE-<10 hex>     morning of 5 Sep     e.g. X-TRACE-1713CB9C2F
+X-<12 hex>           afternoon of 5 Sep   e.g. X-52988DAECE51, X-4427457CBAC9
 ```
 
 The value is regenerated per request. We recovered dozens of distinct values from a single
-store's logs, so the value itself is worthless as an indicator and the **prefix** is what you
-match:
+store's logs, so the value is worthless as an indicator and the **shape** is what you match.
+Match both families:
 
 ```bash
-grep -rlE 'X[_-]TRACE[_-][0-9A-Fa-f]{10}' var/report/ var/log/ /var/log/nginx/
+grep -rlE 'X[_-](TRACE[_-])?[0-9A-Fa-f]{10,12}' var/report/ var/log/ /var/log/nginx/
 ```
+
+A detection pinned to `X-TRACE-` alone goes blind against the second family, which is exactly
+what happened here within one day.
+
+## Response markers
+
+On execution the payload wraps its output in a per-request delimiter and echoes it back:
+
+```
+MG<20 hex>::<base64 result>::/MG<20 hex>    e.g. MG8a5ee8fd94fdb9fc6b50::...::/MG8a5ee8fd94fdb9fc6b50
+```
+
+The hex value differs per request, so match the shape. A response body or log line carrying
+`MG<hex>::` and `::/MG<hex>` is proof the payload ran, not merely that it was sent:
+
+```bash
+grep -rlE 'MG[0-9a-f]{16,}::' var/log/ /var/log/nginx/
+```
+
+## User agents
+
+The exploit requests carried a scripting client, never a browser, on `POST /graphql`:
+
+```
+python-requests 2.15.0      first wave  (note the space, not a slash)
+python-requests/2.32.4      second wave
+```
+
+The version changed between waves, so treat "python-requests on POST /graphql with styles[]
+parameters" as the signal rather than any one version string. Beware your own tooling: `curl/*`
+and `Go-http-client/*` in these logs were our verification traffic, not the attacker.
 
 ## Poisoned files
 

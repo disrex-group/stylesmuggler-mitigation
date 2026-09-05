@@ -148,6 +148,7 @@ Full cross-referenced list, with caveats: **[IOC.md](IOC.md)**. The short versio
 ```
 247.cdnflare.xyz                 malware download host
 5.181.86.133                     attacker source, bulk traffic
+91.238.181.19                    attacker source, second wave (AS49434)
 88.216.72.181                    attacker source, published by Sansec
 
 sha256  e315687a1dfe61ef4a5a5642214db6d3b2b05d81391285eebc2af664641a26a7
@@ -161,7 +162,7 @@ crontab:  */5 * * * * exec <home>/.local/share/.gvfsd/gvfsd-user
 process:  [kworker/u:8:0] owned by a non-root uid
 ```
 
-Two things in IOC.md that cost us time: the traffic came from **26 addresses**, not the one in
+Two things in IOC.md that cost us time: the traffic came from **27 addresses across two waves**, not the one in
 the advisory, and the binary running in memory can hash differently from the file on disk.
 
 The implant is a stripped static Rust binary of roughly 1.9 MB, built for x86-64 and arm64.
