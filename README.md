@@ -142,7 +142,7 @@ crontab:  */5 * * * * exec <home>/.local/share/.gvfsd/gvfsd-user
 process:  [kworker/u:8:0] owned by a non-root uid
 ```
 
-Two things in IOC.md that cost us time: the traffic came from **28 addresses**, not the one in
+Two things in IOC.md that cost us time: the traffic came from **26 addresses**, not the one in
 the advisory, and the binary running in memory can hash differently from the file on disk.
 
 The implant is a stripped static Rust binary of roughly 1.9 MB, built for x86-64 and arm64.

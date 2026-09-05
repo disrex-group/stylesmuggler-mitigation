@@ -73,11 +73,15 @@ Redis.
 ### Hosting infrastructure, bulk traffic
 
 ```
-5.181.86.133           new    CloudVPS     96 requests against one store
-88.216.72.181                 (Sansec)     45 requests
-<redacted>  new    Hetzner
-<redacted>  new    Hetzner
+5.181.86.133    new    CloudVPS     96 requests against one store
+88.216.72.181          (Sansec)     45 requests
 ```
+
+> **Corrected 2026-09-05.** An earlier version of this file listed two Hetzner IPv6 addresses
+> here. They were our own servers, curling themselves during the verification step of our
+> deployment tooling, swept up because the same grep that finds attack traffic also finds your
+> own tests. If you derive a list this way, filter your own addresses and your own user agents
+> (`curl/`, `Go-http-client/`, monitoring agents) before you publish or block anything.
 
 ### Residential proxy pool
 
@@ -95,7 +99,8 @@ recognise the shape: two to six requests each, spread thin, alongside the bulk s
 ```
 
 Blocking `88.216.72.181` alone, which is what the advisory's IOC list implies, stops less than
-a quarter of the traffic we saw.
+a quarter of the traffic we saw. In total we recorded 26 distinct source addresses across two
+stores.
 
 ## Request signatures
 
