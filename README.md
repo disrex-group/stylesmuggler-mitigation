@@ -102,6 +102,11 @@ The MIT license applies, including the part in capitals about no warranty.
 
 All read-only. Nothing below modifies anything.
 
+**The first sign is often an email, not a log.** If the store has emailed its owner a
+garbled "failed transaction" notice full of raw `{{var ...}}` tags and a customer address
+ending in `.invalid`, that is exploitation exhaust — see
+[EARLY-WARNING-EMAIL.md](EARLY-WARNING-EMAIL.md). It is what caught this in the wild.
+
 The sharpest signal is a process name. Genuine kernel threads are always owned by root and
 have no resident memory, so a bracketed name on a site user with real RSS is the implant:
 
