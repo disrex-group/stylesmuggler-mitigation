@@ -21,13 +21,13 @@ still holds. Every rule and patch here works without it.
 
 ## TL;DR
 
-The attack reaches an admin-only page without logging in, feeds it a template
-directive, and rides a chain of Magento's own classes until one of them runs
+The attack feeds attacker-controlled text into Magento's template filter without
+authenticating, and rides a chain of Magento's own classes until one of them runs
 `include` on a file the attacker chose. That file is a log the attacker poisoned a
 moment earlier. Two ordinary features, stacked, become remote code execution.
 
 ```
-  1. reach an admin-only preview page unauthenticated   ← the front door
+  1. attacker text reaches Magento's template filter    ← the front door
   2. hand it a {{block}} template directive             ← the language
   3. the directive drives an object-injection chain     ← the plumbing
   4. the chain ends in include $attacker_path           ← the sink
@@ -35,8 +35,9 @@ moment earlier. Two ordinary features, stacked, become remote code execution.
   6. the executed PHP downloads and runs an implant     ← the outcome
 ```
 
-Patch **step 1** and the whole thing is unreachable. Patch **step 4** and the sink is
-closed. This repository does both.
+Step 1 has no clean guard: the code that processes the text also renders every
+legitimate email. So the shipped patch closes **step 4**, the sink, and the layers that
+do not depend on the entry point (`disable_functions`, `noexec`) carry the rest.
 
 ---
 
@@ -51,9 +52,9 @@ closed. This repository does both.
      │      ../var/log/system.log      │                                  │
      ├────────────────────────────────>│                                  │
      │                                 │                                  │
-     │                    Email\Block\Adminhtml\Template\Preview          │
-     │                    reads text / type / styles straight             │
-     │                    off the request, in a NON-admin area            │
+     │                    template filter runs the {{block}} in          │
+     │                    text, via object injection (no route,           │
+     │                    no auth) — NOT the admin preview block           │
      │                                 │                                  │
      │                    {{block class=...}} is parsed and the           │
      │                    named class is instantiated and driven          │
@@ -78,38 +79,43 @@ closed. This repository does both.
 
 ---
 
-## Step 1: the front door
+## Step 1: the entry — object injection, not a route
 
-The chain starts at one file:
+Be honest about a limit here. The request parameters `text`, `type` and `styles`
+match the fields of one class exactly:
 
 ```
 app/code/Magento/Email/Block/Adminhtml/Template/Preview.php
 ```
 
-Its whole job is the "preview" button on the email-template editor in the admin panel.
-It reads three request parameters and renders them:
+which reads `getParam('text')`, `getParam('type')` and `getParam('styles')` and runs
+them through the template filter. That match is why an earlier version of this document
+named it as the front door.
+
+It is not the front door. That block has an **admin-only route** (`Adminhtml`, behind
+auth), and no route connects `/graphql` to it. Traced statically: no non-admin
+controller reads `text`, and no GraphQL resolver reads these parameters.
+
+What actually processes the gadget is the **model**, not the block:
 
 ```php
-protected function _toHtml()
-{
-    ...
-    $template->setTemplateType($request->getParam('type'));    // type=2 → HTML, unescaped
-    $template->setTemplateText($request->getParam('text'));    // {{block class=...}}
-    $template->setTemplateStyles($request->getParam('styles'));// the gadget parameters
-    ...
-    $this->_appState->emulateAreaCode(                         // processes the directives
-        \Magento\Email\Model\AbstractTemplate::DEFAULT_DESIGN_AREA,
-        [$template, 'getProcessedTemplate']
-    );
-}
+// Magento\Email\Model\AbstractTemplate::getProcessedTemplate()
+$result = $processor->filter($this->getTemplateText());   // runs {{block ...}}
+// and, earlier:
+$variables['template_styles'] = $this->getTemplateStyles();  // the styles gadget
 ```
 
-It is an `Adminhtml` block, meant to be reachable only through the authenticated admin
-controller. The vulnerability is that the chain reaches it from an unauthenticated
-request. Once there, `text` goes straight into Magento's template filter, and the
-attacker controls the template.
+`getProcessedTemplate` is reached through the object-injection chain rather than
+through a route or a controller. The exact unauthenticated endpoint that feeds
+attacker `text` into a template filter is the part Sansec withheld, and this writeup
+does not reproduce it.
 
-This is the real defect. Everything after it is Magento doing what the directive asks.
+This matters for defence: the entry point **cannot be cleanly guarded**.
+`getProcessedTemplate` renders every legitimate transactional email and newsletter in
+the frontend design area, so an area check there would break order confirmations. The
+front door has no lock that does not also lock out the house. That is why the shipped
+patch guards the **sink** instead, and why `disable_functions` and `noexec` — which do
+not depend on the entry point at all — carry the real weight.
 
 ## Steps 2 and 3: the directive and the plumbing
 
@@ -297,9 +303,9 @@ the shape, not the literal.
 ①  poison a file             NOT FILTERABLE — looks like broken input
       │
       ▼
-②  reach the preview block    ◄── ENTRY GUARD: adminhtml-only
-   unauthenticated                closes the front door; everything below
-      │                           becomes unreachable
+②  attacker text reaches       NO CLEAN GUARD — the model that processes
+   the template filter            it renders every legitimate email too
+      │
       ▼
 ③  {{block}} → gadget chain    (no single choke point — many gadgets exist)
       │
@@ -318,13 +324,16 @@ the shape, not the literal.
 
 Not all layers are equal.
 
-**The entry guard (②) is the strongest.** It sits at the front door, so it makes every
-gadget behind it unreachable, including sinks these patches cannot touch. Classes like
-`Magento\Framework\View\TemplateEngine\Php` also `include` a variable path, but they
-render every page and cannot be guarded. Closing the entrance is what covers them.
+**The entry (②) has no clean guard.** The template processing the gadget drives also
+renders every legitimate transactional email, so a check there breaks mail. The front
+door cannot be locked without locking out the house.
 
-**The sink guard (④) is defence in depth.** It closes the one sink we found. If a future
-gadget reaches a DI scanner by another route, this still holds.
+**The sink guard (④) is therefore the shipped patch.** It closes the `include` the
+gadget chain ends in. It is verified: `setup:di:compile` still runs, because it runs
+from the CLI. If a future gadget reaches a DI scanner by another route, this still
+holds. It is not a complete fix on its own — other sinks exist that cannot be guarded
+(`Magento\Framework\View\TemplateEngine\Php` renders every page) — which is the
+whole reason the next two layers matter.
 
 **`disable_functions` with `proc_open` (⑤) is the one that does not depend on knowing
 the vulnerability.** It does not matter which sink, which CVE, or which gadget. Without
@@ -337,9 +346,9 @@ the current campaign. But PHP merges GET and POST into `$_REQUEST`, so the same
 parameters in a POST body walk past them. Deploy them because they are free and stop
 today's traffic; rely on the guards and `disable_functions`.
 
-The guards ② and ④ are shipped as source patches in [`patches/`](patches/), one per
-Magento package, applicable via composer-patches and verified against 2.4.6 through
-2.4.9.
+The sink guard ④ is shipped as a source patch in [`patches/`](patches/), applicable
+via composer-patches and verified against 2.4.6 through 2.4.9. There is no entry-point
+patch, for the reason in Step 1.
 
 ---
 

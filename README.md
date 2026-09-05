@@ -1,13 +1,12 @@
 # StyleSmuggler mitigation snippets
 
-> ### ⚠️ UPDATE — deployable patches are now available
+> ### ⚠️ UPDATE — a deployable patch is now available
 >
-> The two guards this guide applies by hand (the DI scanner sink in section 3, and the
-> email-preview front door) now ship as `composer-patches` source patches in
-> **[`patches/`](patches/)**, one per Magento package. They reapply on every
-> `composer install`, so a deploy never reverts them, and one patch per file applies
-> across 2.4.6 through 2.4.9. **If you deploy Magento with Composer, use these instead
-> of the hand-edits.** See [patches/README.md](patches/README.md).
+> The DI scanner guard this guide applies by hand in section 3 now ships as a
+> `composer-patches` source patch in **[`patches/`](patches/)**. It reapplies on every
+> `composer install`, so a deploy never reverts it, and it applies across 2.4.6 through
+> 2.4.9. **If you deploy Magento with Composer, use it instead of the hand-edits.**
+> See [patches/README.md](patches/README.md).
 
 > ### Read this before you run anything
 >
@@ -378,20 +377,17 @@ grep -c 'PHP_SAPI' setup/src/Magento/Setup/Module/Di/Code/Scanner/ArrayScanner.p
 
 ---
 
-## 3b. The same guards as deployable patches
+## 3b. The same guard as a deployable patch
 
-Sections 2 and 3 above are what you do by hand on a running box. For anything you
-deploy with Composer, [`patches/`](patches/) ships the guards as `composer-patches`
-files that reapply on every `composer install`, so a deploy never quietly reverts them:
+Section 3 is what you do by hand on a running box. For anything you deploy with
+Composer, [`patches/`](patches/) ships the DI scanner guard as a `composer-patches`
+file that reapplies on every `composer install`, so a deploy never quietly reverts it:
 
 - `magento/magento2-base` — the three DI scanners become CLI-only (the sink, section 3)
-- `magento/module-email` — the email template preview refuses to render outside the
-  admin area (the **front door**: it makes the whole gadget chain unreachable, and it
-  is not something the manual steps above cover)
 
-One patch per file applies across 2.4.6 through 2.4.9, verified with `patch --dry-run`
-against every tag in that range and applied-and-linted on live 2.4.7-p2 and 2.4.8-p4,
-with `setup:di:compile` and the storefront confirmed working afterwards.
+It applies across 2.4.6 through 2.4.9, verified with `patch --dry-run` against every tag
+and applied-and-linted on live 2.4.7-p2 and 2.4.8-p4, with `setup:di:compile` and the
+storefront confirmed working afterwards.
 
 ```json
 "extra": {
@@ -399,16 +395,19 @@ with `setup:di:compile` and the storefront confirmed working afterwards.
     "patches": {
         "magento/magento2-base": {
             "StyleSmuggler: DI code scanners are CLI-only": "patches/magento/magento2-base/stylesmuggler-di-scanner-guard.patch"
-        },
-        "magento/module-email": {
-            "StyleSmuggler: email template preview is admin-only": "patches/magento/module-email/stylesmuggler-preview-area-guard.patch"
         }
     }
 }
 ```
 
-Full instructions, including applying by hand and reverting, in
-[patches/README.md](patches/README.md).
+There is deliberately **no patch on the entry point**. The exploit reaches Magento's
+template filter through object injection, not a route, and the code that processes it
+(`Magento\Email\Model\AbstractTemplate::getProcessedTemplate`) also renders every
+legitimate transactional email, so it cannot be guarded without breaking mail. Close
+the sink here, and rely on `disable_functions` (including `proc_open`) and `noexec` on
+`/tmp`, `/var/tmp`, `/dev/shm` as the layers that do not depend on the entry point.
+Full detail in [patches/README.md](patches/README.md) and
+[HOW-IT-WORKS.md](HOW-IT-WORKS.md).
 
 ## 4. Confirm it works
 
