@@ -1,0 +1,81 @@
+---
+# StyleSmuggler mitigation — fleet deployment
+#
+#   ansible-playbook -i inventory.ini ansible/stylesmuggler.yml
+#   ansible-playbook -i inventory.ini ansible/stylesmuggler.yml -e scan_only=true
+#   ansible-playbook -i inventory.ini ansible/stylesmuggler.yml -e revert=true
+#
+# Copies this repository to each host and runs install.sh there, so the playbook
+# stays in step with the scripts instead of duplicating their logic.
+- name: StyleSmuggler mitigation
+  hosts: all
+  become: yes
+
+  vars:
+    scan_only: false
+    revert: false
+    remote_dir: /opt/stylesmuggler-mitigation
+
+  tasks:
+    - name: Ship the mitigation to the host
+      synchronize:
+        src: "{{ playbook_dir }}/../"
+        dest: "{{ remote_dir }}/"
+        delete: yes
+        rsync_opts:
+          - "--exclude=.git"
+      when: not scan_only | bool
+
+    - name: Ship the mitigation to the host (scan only)
+      synchronize:
+        src: "{{ playbook_dir }}/../"
+        dest: "{{ remote_dir }}/"
+        rsync_opts:
+          - "--exclude=.git"
+      when: scan_only | bool
+
+    - name: Make the scripts executable
+      file:
+        path: "{{ item }}"
+        mode: '0755'
+      loop:
+        - "{{ remote_dir }}/install.sh"
+        - "{{ remote_dir }}/bin/stylesmuggler-scan.sh"
+        - "{{ remote_dir }}/bin/stylesmuggler-harden.py"
+
+    - name: Scan for compromise
+      command: "{{ remote_dir }}/bin/stylesmuggler-scan.sh"
+      register: scan
+      changed_when: false
+      failed_when: false
+
+    - name: "RESULT: scan"
+      debug:
+        msg: "{{ scan.stdout_lines }}"
+
+    - name: Stop if this host looks compromised
+      fail:
+        msg: >-
+          Indicators found on {{ inventory_hostname }}. Mitigation NOT applied.
+          Preserve evidence and do incident response first, then re-run.
+      when:
+        - scan.rc == 1
+        - not scan_only | bool
+
+    - name: Apply the mitigation
+      command: "{{ remote_dir }}/install.sh{{ ' --revert' if revert | bool else '' }}"
+      register: install
+      changed_when: "'installed' in install.stdout or 'hardened=' in install.stdout"
+      when: not scan_only | bool
+
+    - name: "RESULT: install"
+      debug:
+        msg: "{{ install.stdout_lines | default(['skipped']) }}"
+
+    - name: "SUMMARY"
+      debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ 'CLEAN' if scan.rc == 0 else 'INDICATORS FOUND' }},
+          {{ 'scan only' if scan_only | bool
+             else ('reverted' if revert | bool else 'mitigation applied') }}
