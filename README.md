@@ -1,5 +1,27 @@
 # StyleSmuggler mitigation snippets
 
+> ### Read this before you run anything
+>
+> **This repository was written with AI assistance, during a live incident, in a few hours.**
+> It has not been through review, and it carries no warranty of any kind.
+>
+> **What is grounded in reality:** the web-server rules come from attack traffic captured on a
+> store that was actually compromised on 5 September 2026. The vulnerable `include` was read
+> out of Magento 2.4.7-p2 source on that same store. The indicators of compromise were
+> observed first-hand, and cross-checked against Sansec's published advisory.
+>
+> **What is not verified:** the Apache rules were never run against a live Apache. Most of the
+> cleanup commands were written rather than executed. Nothing was tested on any Magento
+> version other than 2.4.7-p2, on any distribution other than Ubuntu, or on shared hosting,
+> Docker, or a control panel. Regexes that look obviously correct have a long history of not
+> being.
+>
+> **So: read every command before you run it.** Understand what it does in *your* environment,
+> not the one it was written in. Test on staging, take backups, and validate your web-server
+> config before reloading. If a command here breaks your store, that is on the person who ran
+> it without reading it.
+
+
 Copy-paste mitigation for **StyleSmuggler**, the unauthenticated remote code execution
 vulnerability in Magento Open Source and Adobe Commerce that Sansec disclosed on
 5 September 2026.

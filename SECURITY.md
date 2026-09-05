@@ -16,6 +16,15 @@ This repository mitigates a vulnerability it did not discover. Send new findings
 StyleSmuggler itself to the [Sansec forensics team](https://sansec.io/contact) and to
 Adobe PSIRT, not here.
 
+## Provenance
+
+This repository was written with AI assistance during a live incident response, in a few
+hours, and has not been through review. The rules derive from traffic captured on a store
+that was genuinely compromised; much of the rest is untested outside that one environment.
+See the banner at the top of the README for the split between what is verified and what is not.
+
+Bug reports about wrong or dangerous commands are welcome and useful. Open an issue.
+
 ## Scope
 
 These rules reduce exposure. They are not a vendor patch and they are not a guarantee.
