@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <disrex_stylesmuggler>
+            <guard>
+                <!-- Safe defaults ON: none of these touch legitimate traffic. -->
+                <template_styles_sanitizer_enabled>1</template_styles_sanitizer_enabled>
+                <block_directive_allowlist_enabled>1</block_directive_allowlist_enabled>
+                <log_poison_hygiene_enabled>1</log_poison_hygiene_enabled>
+                <!-- Trade-off: suppresses failed-payment emails. OFF by default. -->
+                <payment_failure_containment_enabled>0</payment_failure_containment_enabled>
+            </guard>
+        </disrex_stylesmuggler>
+    </default>
+</config>

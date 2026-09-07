@@ -1,0 +1,16 @@
+{
+    "name": "disrex/module-stylesmuggler-guard",
+    "description": "Interim application-layer guards for the StyleSmuggler Magento zero-day (Sansec 2026-09-05). Remove once Adobe ships a fix.",
+    "type": "magento2-module",
+    "license": "MIT",
+    "require": {
+        "php": ">=7.4",
+        "magento/framework": ">=103.0.0"
+    },
+    "autoload": {
+        "files": ["registration.php"],
+        "psr-4": {
+            "Disrex\\StyleSmugglerGuard\\": ""
+        }
+    }
+}
