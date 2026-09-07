@@ -8,8 +8,7 @@ with a normal `composer require` instead of a path repository:
 **https://github.com/disrex-group/module-stylesmuggler-guard**
 
 ```bash
-composer config repositories.disrex-stylesmuggler-guard vcs https://github.com/disrex-group/module-stylesmuggler-guard
-composer require disrex/module-stylesmuggler-guard:^0.1
+composer require disrex/module-stylesmuggler-guard
 bin/magento module:enable Disrex_StyleSmugglerGuard
 bin/magento setup:upgrade && bin/magento setup:di:compile
 ```
