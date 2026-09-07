@@ -17,6 +17,14 @@ Items marked **new** did not appear in that advisory at the time of writing.
 This list grows as we mine the evidence further. Newest first, so returning readers can see
 what changed since they last read it. Each dated entry is additive unless it says otherwise.
 
+- **2026-09-06 (from Sansec's updated advisory)** — A second implant build appeared, using the
+  process name `fc-cache` instead of `[kworker/u:8:0]`, with its own paths, cron schedule and a
+  fake-NTP UDP C2 channel. New download host `209.141.43.95`, new C2 hosts, and three new
+  hashes. **We did not observe this variant on our own stores** — our two infections were the
+  earlier `kworker` build with a Redis-only channel and no external C2. Everything in this
+  2026-09-06 entry is from [Sansec's advisory](https://sansec.io/research/stylesmuggler),
+  reproduced here so the two lists stay in step; it is not first-hand. See the
+  "fc-cache variant" section below.
 - **2026-09-05, later revision** — Added a second-wave source IP (`91.238.181.19`, AS49434);
   documented a second trigger-header family (`X-<12 hex>` with no `TRACE`, alongside the
   original `X-TRACE-<10 hex>`); added response markers (`MG<20 hex>::...::/MG<20 hex>`) as
@@ -34,7 +42,12 @@ what changed since they last read it. Each dated entry is additive unless it say
 ```
 sha256  e315687a1dfe61ef4a5a5642214db6d3b2b05d81391285eebc2af664641a26a7   Sansec sample
 sha256  8334b434fa3fe9f59cebe9609b11e0b1fd19d10212c45c705adec1902a1d06ef   on disk, both stores
-sha256  251fabd50d7b18a8b5e1b3ef5d64e7198c17244778f6461fb1ab07f6169bf220   new, see below
+sha256  251fabd50d7b18a8b5e1b3ef5d64e7198c17244778f6461fb1ab07f6169bf220   in-memory, one store
+
+Sansec-published (fc-cache variant, 2026-09-06 — we did not observe these ourselves):
+sha256  b79dfdc1eed860e0b76c629d6adfce251db379b0b45a6d728d4ef483f7551420
+sha256  4352cabaa451e5a894535fbcc4d46628701303322a13745cb5479d7d0534ae8e   kworker-linux-x64
+sha256  d2fbf9eb75c495bfea48790d3b228fab0c15a282419c3d3f5e49294c4e1a3e82   kworker-linux-arm64
 ```
 
 **The third hash matters.** On one store the binary *running in memory* was a different build
@@ -69,12 +82,60 @@ of removal. Because it writes to `/var/spool/cron/crontabs/<user>` instead of ca
 Clean the crontab, kill the processes, remove the binary, **then clean the crontab again**.
 Verify after a full cron cycle.
 
-## Network
+## fc-cache variant (Sansec, 2026-09-06 — not observed by us)
+
+Sansec reports a second build from 6 September that disguises itself as `fc-cache` (the
+fontconfig cache builder) instead of `[kworker/u:8:0]`. Same attack, different persistence and
+a different C2 channel. Check for both names.
 
 ```
-247.cdnflare.xyz     malware download host    (2a06:98c1:3120::2, 2a06:98c1:3121::2)
-99.84.67.186:443     C2, WebSocket over TLS   (published by Sansec)
+process:  fc-cache        owned by a non-root uid
+path:     ~/.cache/fontconfig/fc-cache
+lock:     /tmp/.fc_<8hex>.lock            holds the implant PID; hex = first half of agent id
+drop:     /tmp/.fc-<8hex>/fc-cache
+drop:     /tmp/fc-cache
+drop:     /tmp/.cache_<random><random>
+crontab:  13,43 * * * * <home>/.cache/fontconfig/fc-cache >/dev/null 2>&1
 ```
+
+Its C2 is disguised as NTP: every 60s it sends 48-byte UDP packets to port 123 on a host named
+`ntp.*`, where only the first four bytes are real NTP and the rest is a MessagePack record
+(agent id, hostname, user, OS, memory/disk, uptime, root-or-not, implant version — `2.1.4` in
+this build). Because it is UDP/123 to an `ntp.*` host, it slips past most egress filtering.
+
+It first learns the store's public IP over plain HTTP from `api4.ipify.org`,
+`ipv4.icanhazip.com`, `ipv4.ident.me` and `ipinfo.io`, with a User-Agent truncated after
+`AppleWebKit/537.36` (matching no real browser). It reads `TracerPid` from
+`/proc/self/status`: under a debugger it installs but never beacons.
+
+```bash
+ps -eo pid,comm,args | grep -iE 'kworker|fc-cache'
+ls -la ~/.cache/fontconfig/fc-cache /tmp/.fc_*.lock /tmp/.fc-*/fc-cache /tmp/fc-cache /tmp/.cache_* 2>/dev/null
+crontab -l | grep -iE 'gvfsd|fontconfig/fc-cache'
+```
+
+## Network
+
+Everything under this heading with an `ntp.*`, `.run` or `.studio` host, plus `209.141.43.95`
+and `windwsecurity.run`, is from Sansec's 2026-09-06 advisory and was **not seen on our stores**
+(our infections used a Redis-only channel, no external C2).
+
+```
+247.cdnflare.xyz         malware download host    (2a06:98c1:3120::2, 2a06:98c1:3121::2)
+209.141.43.95            malware download host    http://209.141.43.95/files/ (FranTech AS53667)
+99.84.67.186:443         C2, WebSocket over TLS
+windwsecurity.run:443    remote shell, WebSocket over TLS
+ntp.timesysnc.net:123    C2, fake-NTP UDP
+time.microsft.run:123    C2, fake-NTP UDP
+pool.microsft.studio:123 C2, fake-NTP UDP
+ntp.timesync.to:123      C2, fake-NTP UDP (fc-cache build)
+ntp.synctime.to:123      C2, fallback
+ntp.syncstime.to:123     C2, fallback
+```
+
+Everything except `247.cdnflare.xyz` is from Sansec's advisory; we saw none of it. Note the
+typosquat hosts (`windwsecurity`, `microsft`, `timesysnc`) — deliberate lookalikes that read as
+legitimate at a glance.
 
 Neither of our two packet captures, both over 200 MB and taken while the implant was live,
 contained a single packet to either address. On one store the implant instead held 28

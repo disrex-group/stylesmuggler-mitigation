@@ -110,12 +110,21 @@ through a route or a controller. The exact unauthenticated endpoint that feeds
 attacker `text` into a template filter is the part Sansec withheld, and this writeup
 does not reproduce it.
 
-This matters for defence: the entry point **cannot be cleanly guarded**.
-`getProcessedTemplate` renders every legitimate transactional email and newsletter in
-the frontend design area, so an area check there would break order confirmations. The
-front door has no lock that does not also lock out the house. That is why the shipped
-patch guards the **sink** instead, and why `disable_functions` and `noexec` — which do
-not depend on the entry point at all — carry the real weight.
+Sansec's 6 September update names the concrete trigger: StyleSmuggler deliberately fires
+Magento's standard "Payment Transaction Failed Reminder" email, and **the code runs
+while Magento renders that email**. Nobody has to open it, and the attack can succeed
+even when delivery fails. That rendering path is `getProcessedTemplate`, which is why the
+garbled "failed payment" mail (see [EARLY-WARNING-EMAIL.md](EARLY-WARNING-EMAIL.md)) is
+both the trigger and the alert.
+
+This shapes the defence. `getProcessedTemplate` renders every legitimate transactional
+email too, so you cannot area-guard it or patch it shut without breaking mail — which is
+why the shipped **patch** targets the sink instead. But the entry *can* be narrowed one
+step earlier, at `setTemplateStyles`: legitimate template styles are always plain CSS, so
+an application-layer plugin can reject a value containing `{{`, a PHP tag, or a
+`\Namespace\` separator there without touching real mail. brideo's module does exactly
+that (credited in the patches README). And `disable_functions` and `noexec`, which do not
+depend on the entry point at all, carry the rest of the weight.
 
 ## Steps 2 and 3: the directive and the plumbing
 

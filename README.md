@@ -112,6 +112,8 @@ have no resident memory, so a bracketed name on a site user with real RSS is the
 
 ```bash
 ps -eo pid,user,rss,args --no-headers | awk '$4 ~ /^\[/ && $2 != "root"'
+# and the 6 Sep variant, which hides as fontconfig's cache builder instead:
+ps -eo pid,user,comm,args | grep -iE 'kworker|fc-cache' | grep -v ' root '
 ```
 
 Persistence and dropped files:
@@ -451,6 +453,11 @@ nothing by it: every rule here works without knowing how to build the exploit.
 ProxiBlue (Lucas van Staden) independently published the same DI-scanner guard
 (<https://gist.github.com/ProxiBlue/07373c92c8c70dc746bbfdcd1f07b789>); their originals are
 in `patches/upstream/proxiblue/`. Convergent, independent work.
+
+brideo / Upturn built a fuller Magento module on top of the same analysis, crediting us and
+ProxiBlue: <https://github.com/brideo/stylesmuggler-patch> (MIT). It adds an application-layer
+entry guard at `setTemplateStyles` that our patch cannot reach; see the patches README. If you
+want defence in depth beyond the sink patch, use their module.
 
 
 Vulnerability discovery, naming and the original advisory belong to the
