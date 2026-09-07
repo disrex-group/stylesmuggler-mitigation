@@ -1,3 +1,4 @@
 *.tmp
 *.stylesmuggler.tmp
 .DS_Store
+.idea/

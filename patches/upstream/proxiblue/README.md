@@ -29,8 +29,9 @@ three would fail on the second apply, or double-insert the guard. Pick one:
   per-file patches or are already tracking ProxiBlue's gist.
 
 Either closes the sink. Neither is a complete fix on its own; see the repository root
-for the layers that do not depend on the entry point (`disable_functions` incl.
-`proc_open`, and `noexec`).
+for the layers that do not depend on the entry point (`disable_functions` and `noexec`).
+Note that `proc_open`, one of the exec functions, also drives Magento's default sendmail
+mail, so disabling it needs a move to SMTP first; the root README explains the sequence.
 
 ## Difference from our version
 

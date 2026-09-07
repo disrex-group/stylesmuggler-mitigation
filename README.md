@@ -1,12 +1,17 @@
 # StyleSmuggler mitigation snippets
 
-> ### ⚠️ UPDATE — a deployable patch is now available
+> ### ⚠️ UPDATE: a deployable module and patch are now available
 >
-> The DI scanner guard this guide applies by hand in section 3 now ships as a
-> `composer-patches` source patch in **[`patches/`](patches/)**. It reapplies on every
-> `composer install`, so a deploy never reverts it, and it applies across 2.4.6 through
-> 2.4.9. **If you deploy Magento with Composer, use it instead of the hand-edits.**
-> See [patches/README.md](patches/README.md).
+> You no longer have to apply this guide by hand. Two drop-in options now exist, both
+> covering 2.4.6 through 2.4.9:
+>
+> - **A Composer module.** Run `composer require disrex/module-stylesmuggler-guard` to
+>   install the application-layer guards as an ordinary Magento module. Start here if you
+>   want protection in place quickly. See **[modules/](modules/)**.
+> - **A source patch** in **[`patches/`](patches/)** that closes the code-execution sink
+>   itself and reapplies on every `composer install`. Layer it under the module.
+>
+> The hand-edits in section 3 still work, and still explain what the patch does.
 
 > ### Read this before you run anything
 >
@@ -148,6 +153,7 @@ find /home /root /tmp /var/tmp /dev/shm \
 Full cross-referenced list, with caveats: **[IOC.md](IOC.md)**. The short version:
 
 ```
+kworker variant (observed first-hand, 5 Sep):
 247.cdnflare.xyz                 malware download host
 5.181.86.133                     attacker source, bulk traffic
 91.238.181.19                    attacker source, second wave (AS49434)
@@ -162,10 +168,20 @@ sha256  251fabd50d7b18a8b5e1b3ef5d64e7198c17244778f6461fb1ab07f6169bf220
 /tmp/.kw_<random><random>
 crontab:  */5 * * * * exec <home>/.local/share/.gvfsd/gvfsd-user
 process:  [kworker/u:8:0] owned by a non-root uid
+
+fc-cache variant (Sansec, 6 Sep, not observed by us; check for it too):
+209.141.43.95                    malware download host
+sha256  4352cabaa451e5a894535fbcc4d46628701303322a13745cb5479d7d0534ae8e  x86-64
+sha256  d2fbf9eb75c495bfea48790d3b228fab0c15a282419c3d3f5e49294c4e1a3e82  arm64
+~/.cache/fontconfig/fc-cache
+crontab:  13,43 * * * * ~/.cache/fontconfig/fc-cache
+process:  fc-cache owned by a non-root uid
+network:  48-byte UDP to port 123 on an ntp.* host (fake NTP C2)
 ```
 
-Two things in IOC.md that cost us time: the traffic came from **27 addresses across two waves**, not the one in
-the advisory, and the binary running in memory can hash differently from the file on disk.
+Three things in IOC.md that cost us time: the traffic came from **27 addresses across two waves**, not the
+one in the advisory; the binary running in memory can hash differently from the file on disk; and the 6 Sep
+`fc-cache` build hides its C2 as NTP on UDP/123, so it slips past egress filtering that lets NTP out.
 
 The implant is a stripped static Rust binary of roughly 1.9 MB, built for x86-64 and arm64.
 In one observed infection it opened no outbound connection at all, reading its work from the
@@ -412,10 +428,13 @@ There is deliberately **no patch on the entry point**. The exploit reaches Magen
 template filter through object injection, not a route, and the code that processes it
 (`Magento\Email\Model\AbstractTemplate::getProcessedTemplate`) also renders every
 legitimate transactional email, so it cannot be guarded without breaking mail. Close
-the sink here, and rely on `disable_functions` (including `proc_open`) and `noexec` on
-`/tmp`, `/var/tmp`, `/dev/shm` as the layers that do not depend on the entry point.
-Full detail in [patches/README.md](patches/README.md) and
-[HOW-IT-WORKS.md](HOW-IT-WORKS.md).
+the sink here, and rely on `disable_functions` and `noexec` on `/tmp`, `/var/tmp`,
+`/dev/shm` as the layers that do not depend on the entry point. One caveat on
+`disable_functions`: `proc_open` is the exec function that also drives Magento's default
+sendmail mail, so disabling it breaks mail unless you first move the store to a
+socket-based SMTP transport. Disable `shell_exec`, `exec`, `system`, `passthru` and
+`popen` now; close `proc_open` after mail no longer needs it. Full detail in
+[patches/README.md](patches/README.md) and [HOW-IT-WORKS.md](HOW-IT-WORKS.md).
 
 ## 4. Confirm it works
 

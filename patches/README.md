@@ -47,9 +47,11 @@ approach, not a patch, which is why it lives in a module rather than here.
 Alongside it, the defensible layers are the sink guard in this repo, plus the two that do not
 depend on knowing the vulnerability at all:
 
-- **`disable_functions` including `proc_open`** — no exec function, no dropped implant,
-  whatever sink the attacker reaches.
-- **`noexec` on `/tmp`, `/var/tmp`, `/dev/shm`** — the downloaded binary cannot run.
+- **`disable_functions`.** No exec function, no dropped implant, whatever sink the attacker
+  reaches. Disable `shell_exec`, `exec`, `system`, `passthru` and `popen` now. `proc_open` is
+  the exception: it also drives Magento's default sendmail mail, so move the store to a
+  socket-based SMTP transport first, then disable `proc_open` too.
+- **`noexec` on `/tmp`, `/var/tmp`, `/dev/shm`.** The downloaded binary cannot run.
 
 See the main README and HOW-IT-WORKS.md for those.
 

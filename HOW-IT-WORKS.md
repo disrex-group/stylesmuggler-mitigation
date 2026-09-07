@@ -243,6 +243,26 @@ to its docroot.
 A `disable_functions` list that stops five of the six stops nothing. This was the
 single missing entry that let one of the two compromises succeed.
 
+### But proc_open is also how Magento sends mail
+
+Here is the trap. Magento's default mail transport is Symfony Mailer's `SendmailTransport`,
+which shells out through `proc_open` (it is the only function in `symfony/mailer` that does).
+Add `proc_open` to `disable_functions` on a store that mails through sendmail and every order
+confirmation, password reset and admin notification stops going out, silently.
+
+So `proc_open` is both the attacker's last working exec primitive and Magento's mail
+primitive. A blanket `disable_functions` cannot close the one and keep the other.
+
+The way through is to move mail off sendmail first. A socket-based SMTP transport, which
+talks to a mail server over a network socket, does not use `proc_open`, and most stores
+running an SMTP module already send this way. Switch the store to SMTP, confirm mail still
+sends, then disable `proc_open`. Until you do, leave `proc_open` enabled and lean on the sink
+patch and `noexec`: with `proc_open` open, this layer does not close code execution by itself.
+
+The other five (`shell_exec`, `exec`, `system`, `passthru`, `popen`) you can disable now with
+no effect on Magento or Symfony Mailer. That removes five of the six probes; only `proc_open`
+needs the mail change first.
+
 ---
 
 ## Why it hides so well
@@ -322,8 +342,8 @@ the shape, not the literal.
 ④  include $file → RCE         ◄── SINK GUARD: DI scanners are CLI-only
       │                           closes the one sink we can name
       ▼
-⑤  dropper spawns process      ◄── disable_functions incl. proc_open
-      │                           vulnerability-independent: no exec, no implant
+⑤  dropper spawns process      ◄── disable_functions (proc_open needs SMTP mail first)
+      │                           vulnerability-independent once proc_open is closed
       ▼
 ⑥  binary runs from /tmp       ◄── noexec on /tmp, /var/tmp, /dev/shm
       │
@@ -344,10 +364,14 @@ holds. It is not a complete fix on its own — other sinks exist that cannot be 
 (`Magento\Framework\View\TemplateEngine\Php` renders every page) — which is the
 whole reason the next two layers matter.
 
-**`disable_functions` with `proc_open` (⑤) is the one that does not depend on knowing
-the vulnerability.** It does not matter which sink, which CVE, or which gadget. Without
-the six exec functions PHP cannot start a process, so code execution never becomes a
-running implant. This is the layer to get right first.
+**`disable_functions` (⑤) is the layer that does not depend on knowing the
+vulnerability, once you can close `proc_open`.** It does not matter which sink, which CVE,
+or which gadget: without the exec functions PHP cannot start a process, so code execution
+never becomes a running implant. The catch is `proc_open`. Magento's default sendmail
+transport needs it, so disabling it means moving mail to a socket-based SMTP transport
+first (see "But proc_open is also how Magento sends mail" above). Disable the other five
+now; close `proc_open` as soon as mail no longer depends on it. This is the layer to get
+right first, and the mail change is part of getting it right.
 
 **The web-server rules are a speed bump, not a fix.** nginx and Apache only see the URL
 query string. Every attack observed so far put the parameters there, so the rules stop
