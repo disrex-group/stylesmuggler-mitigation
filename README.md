@@ -18,7 +18,8 @@
 > - **Easiest, one command:** `composer require disrex/stylesmuggler-adobe-patches`. It is a
 >   Composer plugin that detects your version and applies Adobe's patch itself, on both Magento
 >   Open Source and Mage-OS. No `cweagans/composer-patches` or `enable-patching` needed, and it
->   leaves your installed packages untouched. Allow it once when Composer asks. See
+>   leaves your installed packages untouched. Answer `y` when Composer asks whether to trust the
+>   plugin (or pre-allow it for CI), otherwise it is skipped and nothing is patched. See
 >   [stylesmuggler-adobe-patches](https://github.com/disrex-group/stylesmuggler-adobe-patches).
 > - **Or apply the patch by hand:** the same Adobe patches, per version, are in
 >   **[`patches/`](patches/)**; provenance and steps in [patches/README.md](patches/README.md).
