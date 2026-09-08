@@ -45,21 +45,14 @@ this one supersedes it.
 ## Applying, the easy way
 
 ```bash
-# Magento Open Source
 composer require disrex/stylesmuggler-adobe-patches
-# Mage-OS
-composer require disrex/stylesmuggler-adobe-patches-mageos
-composer -o install
 ```
 
-Each package selects the patch for your installed version by itself, through
-`cweagans/composer-patches`. It needs `cweagans/composer-patches` allowed as a plugin, and on
-composer-patches v1 also `"enable-patching": true` in your root `extra`. Details, version
-coverage and limitations are in
-[stylesmuggler-adobe-patches](https://github.com/disrex-group/stylesmuggler-adobe-patches)
-(Magento) and
-[stylesmuggler-adobe-patches-mageos](https://github.com/disrex-group/stylesmuggler-adobe-patches-mageos)
-(Mage-OS).
+That package is a Composer plugin: it detects your version and applies Adobe's patch itself, on
+both Magento Open Source and Mage-OS. It needs no `cweagans/composer-patches` and no
+`enable-patching`; allow the plugin once when Composer asks. Details, version coverage and
+limitations are in
+[stylesmuggler-adobe-patches](https://github.com/disrex-group/stylesmuggler-adobe-patches).
 
 ## Applying by hand
 

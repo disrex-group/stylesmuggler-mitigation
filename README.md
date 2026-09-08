@@ -15,13 +15,11 @@
 > command below). The old hand-rolled DI-scanner patch is gone from this repo too, replaced by
 > Adobe's.
 >
-> - **Easiest, one command.** On Magento Open Source,
->   `composer require disrex/stylesmuggler-adobe-patches`; on Mage-OS,
->   `composer require disrex/stylesmuggler-adobe-patches-mageos`. Each picks Adobe's patch for
->   your installed version automatically, through `cweagans/composer-patches`, and leaves your
->   install untouched. See
->   [stylesmuggler-adobe-patches](https://github.com/disrex-group/stylesmuggler-adobe-patches)
->   and [stylesmuggler-adobe-patches-mageos](https://github.com/disrex-group/stylesmuggler-adobe-patches-mageos).
+> - **Easiest, one command:** `composer require disrex/stylesmuggler-adobe-patches`. It is a
+>   Composer plugin that detects your version and applies Adobe's patch itself, on both Magento
+>   Open Source and Mage-OS. No `cweagans/composer-patches` or `enable-patching` needed, and it
+>   leaves your installed packages untouched. Allow it once when Composer asks. See
+>   [stylesmuggler-adobe-patches](https://github.com/disrex-group/stylesmuggler-adobe-patches).
 > - **Or apply the patch by hand:** the same Adobe patches, per version, are in
 >   **[`patches/`](patches/)**; provenance and steps in [patches/README.md](patches/README.md).
 > - **Still worth your time regardless of patch status:** [IOC.md](IOC.md) and
