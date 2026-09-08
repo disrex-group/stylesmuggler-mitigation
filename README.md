@@ -7,10 +7,13 @@
 > instantiates an attacker-named class before checking its type. Everything this repository
 > shipped before it was interim mitigation for the window when no fix existed.
 >
-> **Apply Adobe's patch and you no longer need our module or our hand-rolled patch.** The
-> guard module (`disrex/module-stylesmuggler-guard`) is superseded; disable and remove it
-> once patched. The old DI-scanner source patch is gone from this repo, replaced by Adobe's
-> official patch.
+> **Do not use the old guard module anymore. Use the patch instead.** The application-layer
+> guard module (`disrex/module-stylesmuggler-guard`) was interim and is now superseded:
+> disable and remove it once patched
+> (`bin/magento module:disable Disrex_StyleSmugglerGuard && composer remove disrex/module-stylesmuggler-guard`).
+> In its place, apply Adobe's official fix through the patch package we built for it (the one
+> command below). The old hand-rolled DI-scanner patch is gone from this repo too, replaced by
+> Adobe's.
 >
 > - **Easiest, one command.** On Magento Open Source,
 >   `composer require disrex/stylesmuggler-adobe-patches`; on Mage-OS,
