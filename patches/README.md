@@ -42,7 +42,22 @@ Because the chain is cut at block instantiation, the DI code scanners the earlie
 patch guarded are no longer reachable through the exploit. That interim patch is removed;
 this one supersedes it.
 
-## Applying
+## Applying, the easy way
+
+```bash
+composer require disrex/stylesmuggler-adobe-patches
+composer -o install
+```
+
+That package selects the patch for your exact Magento version by itself, through
+`cweagans/composer-patches`. It needs `cweagans/composer-patches` allowed as a plugin, and on
+composer-patches v1 also `"enable-patching": true` in your root `extra`. Details, version
+coverage and limitations are in
+[disrex-group/stylesmuggler-adobe-patches](https://github.com/disrex-group/stylesmuggler-adobe-patches).
+
+## Applying by hand
+
+If you would rather not add the package, apply the same patches directly:
 
 1. Copy the folder matching your exact Magento version into `patches/` at your Composer
    project root, for example `patches/APSB26-146_249`.

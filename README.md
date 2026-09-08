@@ -12,9 +12,12 @@
 > once patched. The old DI-scanner source patch is gone from this repo, replaced by Adobe's
 > official patch.
 >
-> - **The patch**, repackaged for `cweagans/composer-patches` and covering 2.4.4 through
->   2.4.9, is in **[`patches/`](patches/)**. Provenance and how to apply are in
->   [patches/README.md](patches/README.md).
+> - **Easiest, one command:** `composer require disrex/stylesmuggler-adobe-patches`. It picks
+>   Adobe's patch for your exact Magento version automatically, through
+>   `cweagans/composer-patches`. See
+>   [disrex-group/stylesmuggler-adobe-patches](https://github.com/disrex-group/stylesmuggler-adobe-patches).
+> - **Or apply the patch by hand:** the same Adobe patches, per version, are in
+>   **[`patches/`](patches/)**; provenance and steps in [patches/README.md](patches/README.md).
 > - **Still worth your time regardless of patch status:** [IOC.md](IOC.md) and
 >   [CLEANUP.md](CLEANUP.md). A patch shuts the door; it does not evict an attacker who is
 >   already in or invalidate secrets they read. If you were exposed, rotate keys and hunt.
