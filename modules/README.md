@@ -1,5 +1,12 @@
 # Magento modules
 
+> **Superseded by Adobe APSB26-146 (7 September 2026).** With the official patch applied
+> (see [`../patches/`](../patches/)) the guard module is no longer needed: Adobe fixes the
+> same block-instantiation, template-styles and error-report paths the module guarded, at
+> the source. On a patched store, disable and remove it:
+> `bin/magento module:disable Disrex_StyleSmugglerGuard && composer remove disrex/module-stylesmuggler-guard`.
+> The rest of this page is kept as the record of the interim mitigation.
+
 ## Disrex_StyleSmugglerGuard
 
 The application-layer guard module now lives in its own repository so you can install it
@@ -18,8 +25,9 @@ hygiene, and an optional default-off failed-payment containment. Built on brideo
 (MIT), with the styles-sanitiser hook corrected to `getProcessedTemplate` (the magic
 `setTemplateStyles` a plugin cannot intercept). Full detail in that repository's README.
 
-Keeping the module in one place stops two copies drifting. The sink patch that the module
-complements stays here, in [`../patches/`](../patches/).
+Keeping the module in one place stopped two copies drifting. Since 7 September the patch in
+[`../patches/`](../patches/) is Adobe's official fix, which replaces both the module and the
+old sink patch.
 
 ## Disabling GraphQL
 

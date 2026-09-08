@@ -1,0 +1,21 @@
+{
+    "extra": {
+        "patches": {
+            "magento/framework": {
+                "APSB26-146 (VULN-39341) block instantiation and error report RCE hardening": "patches/APSB26-146_245p17/magento_framework.patch"
+            },
+            "magento/magento2-base": {
+                "APSB26-146 (VULN-39341) block instantiation and error report RCE hardening": "patches/APSB26-146_245p17/magento_magento2-base.patch"
+            },
+            "magento/module-backend": {
+                "APSB26-146 (VULN-39341) block instantiation and error report RCE hardening": "patches/APSB26-146_245p17/magento_module-backend.patch"
+            },
+            "magento/module-email": {
+                "APSB26-146 (VULN-39341) block instantiation and error report RCE hardening": "patches/APSB26-146_245p17/magento_module-email.patch"
+            },
+            "magento/module-newsletter": {
+                "APSB26-146 (VULN-39341) block instantiation and error report RCE hardening": "patches/APSB26-146_245p17/magento_module-newsletter.patch"
+            }
+        }
+    }
+}

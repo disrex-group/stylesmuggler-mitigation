@@ -1,17 +1,26 @@
 # StyleSmuggler mitigation snippets
 
-> ### ⚠️ UPDATE: a deployable module and patch are now available
+> ### ✅ UPDATE, 7 September 2026: Adobe has released the official fix. Apply it.
 >
-> You no longer have to apply this guide by hand. Two drop-in options now exist, both
-> covering 2.4.6 through 2.4.9:
+> Adobe published **APSB26-146** (CVE-2026-75650, CVSS 10.0, exploited in the wild), the
+> real fix for StyleSmuggler. It closes the vulnerability at its root: Magento no longer
+> instantiates an attacker-named class before checking its type. Everything this repository
+> shipped before it was interim mitigation for the window when no fix existed.
 >
-> - **A Composer module.** Run `composer require disrex/module-stylesmuggler-guard` to
->   install the application-layer guards as an ordinary Magento module. Start here if you
->   want protection in place quickly. See **[modules/](modules/)**.
-> - **A source patch** in **[`patches/`](patches/)** that closes the code-execution sink
->   itself and reapplies on every `composer install`. Layer it under the module.
+> **Apply Adobe's patch and you no longer need our module or our hand-rolled patch.** The
+> guard module (`disrex/module-stylesmuggler-guard`) is superseded; disable and remove it
+> once patched. The old DI-scanner source patch is gone from this repo, replaced by Adobe's
+> official patch.
 >
-> The hand-edits in section 3 still work, and still explain what the patch does.
+> - **The patch**, repackaged for `cweagans/composer-patches` and covering 2.4.4 through
+>   2.4.9, is in **[`patches/`](patches/)**. Provenance and how to apply are in
+>   [patches/README.md](patches/README.md).
+> - **Still worth your time regardless of patch status:** [IOC.md](IOC.md) and
+>   [CLEANUP.md](CLEANUP.md). A patch shuts the door; it does not evict an attacker who is
+>   already in or invalidate secrets they read. If you were exposed, rotate keys and hunt.
+>
+> The rest of this file is kept as the record of how the attack worked and how it was held
+> off before 7 September.
 
 > ### Read this before you run anything
 >
@@ -291,8 +300,13 @@ location ^~ /graphql { return 403; }
 
 ## 3. Make the DI scanners CLI-only
 
-**This is the important one.** Unlike the web-server rules, it is not tied to how the request
-is shaped, so it cannot be bypassed by moving parameters into the POST body.
+> **Superseded by Adobe's official patch (see §3b).** This hand-edit was the emergency
+> control before 7 September 2026. If you can run Composer, apply Adobe's APSB26-146 patch
+> from [`patches/`](patches/) instead; it fixes the entry, not just this sink. This section
+> stays for a box mid-incident that cannot deploy.
+
+Unlike the web-server rules, it is not tied to how the request is shaped, so it cannot be
+bypassed by moving parameters into the POST body.
 
 The attack terminates inside Magento's dependency-injection compiler, in classes that perform
 a variable-path `include`. Stock Magento drives all three from `bin/magento setup:di:compile`,
@@ -401,40 +415,25 @@ grep -c 'PHP_SAPI' setup/src/Magento/Setup/Module/Di/Code/Scanner/ArrayScanner.p
 
 ---
 
-## 3b. The same guard as a deployable patch
+## 3b. The deployable patch: Adobe's official fix
 
-Section 3 is what you do by hand on a running box. For anything you deploy with
-Composer, [`patches/`](patches/) ships the DI scanner guard as a `composer-patches`
-file that reapplies on every `composer install`, so a deploy never quietly reverts it:
+Section 3 is the hand-edit for a box mid-incident with no other option. For anything you
+deploy with Composer, [`patches/`](patches/) now ships **Adobe's official APSB26-146 fix**
+(CVE-2026-75650), repackaged for `composer-patches` and covering 2.4.4 through 2.4.9. It
+replaces the interim sink patch this section used to carry. Apply it, not the hand-edit:
+[patches/README.md](patches/README.md).
 
-- `magento/magento2-base` — the three DI scanners become CLI-only (the sink, section 3)
+Adobe's patch fixes the entry, not only the sink. It stops Magento instantiating an
+attacker-named class before the type is checked, in `BlockFactory` and the grid-row
+`UrlGeneratorFactory`, and it rejects non-string template styles, so the object-injection
+gadget never reaches an `include`. Guarding only the sink is no longer the shape of the fix.
 
-It applies across 2.4.6 through 2.4.9, verified with `patch --dry-run` against every tag
-and applied-and-linted on live 2.4.7-p2 and 2.4.8-p4, with `setup:di:compile` and the
-storefront confirmed working afterwards.
-
-```json
-"extra": {
-    "composer-exit-on-patch-failure": true,
-    "patches": {
-        "magento/magento2-base": {
-            "StyleSmuggler: DI code scanners are CLI-only": "patches/magento/magento2-base/stylesmuggler-di-scanner-guard.patch"
-        }
-    }
-}
-```
-
-There is deliberately **no patch on the entry point**. The exploit reaches Magento's
-template filter through object injection, not a route, and the code that processes it
-(`Magento\Email\Model\AbstractTemplate::getProcessedTemplate`) also renders every
-legitimate transactional email, so it cannot be guarded without breaking mail. Close
-the sink here, and rely on `disable_functions` and `noexec` on `/tmp`, `/var/tmp`,
-`/dev/shm` as the layers that do not depend on the entry point. One caveat on
-`disable_functions`: `proc_open` is the exec function that also drives Magento's default
-sendmail mail, so disabling it breaks mail unless you first move the store to a
-socket-based SMTP transport. Disable `shell_exec`, `exec`, `system`, `passthru` and
-`popen` now; close `proc_open` after mail no longer needs it. Full detail in
-[patches/README.md](patches/README.md) and [HOW-IT-WORKS.md](HOW-IT-WORKS.md).
+`disable_functions` and `noexec` on `/tmp`, `/var/tmp`, `/dev/shm` are still worth keeping as
+defence in depth, but they are no longer load-bearing once the patch is applied. One caveat if
+you set them: `proc_open` is the exec function that also drives Magento's default sendmail
+mail, so disabling it breaks mail unless you first move the store to a socket-based SMTP
+transport. Disable `shell_exec`, `exec`, `system`, `passthru` and `popen` freely; close
+`proc_open` only after mail no longer needs it. More in [HOW-IT-WORKS.md](HOW-IT-WORKS.md).
 
 ## 4. Confirm it works
 
@@ -469,14 +468,18 @@ nothing by it: every rule here works without knowing how to build the exploit.
 
 ## Credits
 
-ProxiBlue (Lucas van Staden) independently published the same DI-scanner guard
-(<https://gist.github.com/ProxiBlue/07373c92c8c70dc746bbfdcd1f07b789>); their originals are
-in `patches/upstream/proxiblue/`. Convergent, independent work.
+ProxiBlue (Lucas van Staden) independently published the same DI-scanner guard during the
+interim period (<https://gist.github.com/ProxiBlue/07373c92c8c70dc746bbfdcd1f07b789>).
+Convergent, independent work, superseded now by Adobe's official fix.
 
-brideo / Upturn built a fuller Magento module on top of the same analysis, crediting us and
-ProxiBlue: <https://github.com/brideo/stylesmuggler-patch> (MIT). It adds an application-layer
-entry guard at `setTemplateStyles` that our patch cannot reach; see the patches README. If you
-want defence in depth beyond the sink patch, use their module.
+brideo / Upturn built a fuller Magento module on the same analysis, crediting us and
+ProxiBlue: <https://github.com/brideo/stylesmuggler-patch> (MIT). It guarded the entry at
+`setTemplateStyles`, which Adobe's patch now covers directly. Both were interim; apply Adobe's
+patch and neither is needed.
+
+yellowteak repackaged Adobe's official VULN-39341 patch for `cweagans/composer-patches`
+(<https://github.com/yellowteak/APSB26-146-patches>); that repackaging is what ships in
+[`patches/`](patches/). The fix itself is Adobe's.
 
 
 Vulnerability discovery, naming and the original advisory belong to the

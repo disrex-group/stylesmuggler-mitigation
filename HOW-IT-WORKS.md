@@ -379,9 +379,13 @@ the current campaign. But PHP merges GET and POST into `$_REQUEST`, so the same
 parameters in a POST body walk past them. Deploy them because they are free and stop
 today's traffic; rely on the guards and `disable_functions`.
 
-The sink guard ④ is shipped as a source patch in [`patches/`](patches/), applicable
-via composer-patches and verified against 2.4.6 through 2.4.9. There is no entry-point
-patch, for the reason in Step 1.
+**Update, 7 September 2026.** Adobe's official fix (APSB26-146, CVE-2026-75650) closes the
+entry that this section calls unguardable. It stops Magento instantiating an attacker-named
+class before checking the type, in `BlockFactory` and `UrlGeneratorFactory`, and rejects
+non-string template styles, so the gadget at ② and ③ never reaches the ④ sink. That makes the
+interim sink guard unnecessary: [`patches/`](patches/) now ships Adobe's patch instead. This
+page stays as the record of how the attack worked and how it was held off before the fix
+existed.
 
 ---
 
